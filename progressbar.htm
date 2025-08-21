@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Course Time Progress</title>
+  <style>
+    :root { --w: 0%; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 1rem; }
+    .wrap { max-width: 700px; margin: 0 auto; }
+    .label { font-weight: 600; margin-bottom: .5rem; }
+    .bar { background:#eee; border-radius: 10px; height: 18px; overflow: hidden; }
+    .fill { background: #6c5ce7; height:100%; width: var(--w); transition: width .6s ease; }
+    .meta { margin-top: .5rem; font-size: .9rem; color:#444; }
+    .sr-only { position: absolute; left: -10000px; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="group" aria-labelledby="heading">
+    <div id="heading" class="label"></div>
+    <div class="bar" aria-label="Progress" aria-live="polite">
+      <div class="fill" id="fill"></div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="sr-only" id="sr"></div>
+  </div>
+
+  <script>
+    function fmt(dt){ return dt.toLocaleString(undefined,{dateStyle:'medium'}); }
+    function pct(now, start, end){
+      const total = end - start;
+      if (now <= start) return 0;
+      if (now >= end) return 100;
+      return ((now - start) / total) * 100;
+    }
+    function run(){
+      const p = new URLSearchParams(location.search);
+      const label = p.get('label') || 'Course time elapsed';
+      // Dates as ISO like 2025-08-26 or full ISO; optional time zone offset via tz (e.g., "America/Chicago") not required
+      const start = new Date(p.get('start'));
+      const end   = new Date(p.get('end'));
+      const now   = new Date();
+
+      if (isNaN(start) || isNaN(end) || end <= start){
+        document.getElementById('heading').textContent = 'Invalid dates';
+        document.getElementById('meta').textContent = 'Check your start/end parameters.';
+        return;
+      }
+      const percent = Math.max(0, Math.min(100, pct(now, start, end)));
+      document.documentElement.style.setProperty('--w', percent.toFixed(2) + '%');
+      document.getElementById('heading').textContent = `${label}: ${percent.toFixed(1)}%`;
+      const daysTotal = Math.round((end - start)/86400000);
+      const daysLeft  = Math.max(0, Math.ceil((end - now)/86400000));
+      const daysDone  = Math.max(0, daysTotal - daysLeft);
+      document.getElementById('meta').textContent =
+        `${fmt(start)} → ${fmt(end)}  •  ${daysDone}/${daysTotal} days elapsed  •  ${daysLeft} days remaining`;
+      document.getElementById('sr').textContent =
+        `Progress ${percent.toFixed(1)} percent. ${daysDone} of ${daysTotal} days elapsed.`;
+    }
+    run();
+    // keep it fresh while page is open
+    setInterval(run, 60_000);
+  </script>
+</body>
+</html>
