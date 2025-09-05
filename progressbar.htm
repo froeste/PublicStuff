@@ -17,14 +17,25 @@
     .bar { background:#eee; border-radius: 10px; height: 18px; overflow: hidden; }
     .fill { background: #6c5ce7; height:100%; width: var(--w); transition: width .6s ease; }
     .meta { margin-top: .5rem; font-size: .9rem; color:#444; text-align: center; }
-    .countdown {
+
+    /* New countdown label (slightly smaller than the countdown) */
+    .cd-label {
       margin-top: 1rem;
-      font-size: clamp(1.25rem, 5vw, 2rem);
+      font-size: clamp(1rem, 3.5vw, 1.25rem);
       font-weight: 600;
+      text-align: center;
+      color: #333;
+    }
+
+    .countdown {
+      margin-top: .35rem;
+      font-size: clamp(1.25rem, 5vw, 2rem);
+      font-weight: 700;
       text-align: center;
       font-variant-numeric: tabular-nums;
       color: #222; /* default */
     }
+
     .sr-only { position: absolute; left: -10000px; }
   </style>
 </head>
@@ -38,6 +49,9 @@
 
     <div class="meta" id="meta"></div>
 
+    <!-- new: label above countdown -->
+    <div id="cdLabel" class="cd-label" aria-hidden="true"></div>
+
     <!-- countdown under everything -->
     <div id="countdown" class="countdown" aria-live="polite"></div>
 
@@ -46,7 +60,9 @@
 
   <script>
     const MS_PER_DAY = 86400000;
+
     function fmtDate(dt){ return dt.toLocaleString(undefined,{dateStyle:'medium'}); }
+
     function pct(now, start, end){
       const total = end - start;
       if (isNaN(total) || total <= 0) return 0;
@@ -54,14 +70,22 @@
       if (now >= end) return 100;
       return ((now - start) / total) * 100;
     }
+
     function two(n){ return String(n).padStart(2,'0'); }
-    function fmtMMSS(ms){
-      if (ms <= 0) return '00:00';
-      const s = Math.ceil(ms/1000);
-      const m = Math.floor(s/60);
-      const sec = s % 60;
-      return `${two(m)}:${two(sec)}`;
+
+    // Days:Minutes:Seconds (D:MM:SS)
+    // Note: minutes can exceed 59 because hours are folded into minutes.
+    function fmtDMS(ms){
+      if (ms <= 0) return '0:00:00';
+      // round *up* so 1.2s shows as 00:02 instead of 00:01
+      const totalSec = Math.ceil(ms / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const remainderSec = totalSec - days * 86400;
+      const minutes = Math.floor(remainderSec / 60); // may be 0..1439
+      const seconds = remainderSec % 60;
+      return `${days}:${two(minutes)}:${two(seconds)}`;
     }
+
     function getNumber(p, ...keys){
       for (const k of keys){
         const v = p.get(k);
@@ -71,11 +95,13 @@
       }
       return null;
     }
+
     function parseDateish(v){
       if (!v) return null;
       const n = Number(v);
       return !Number.isNaN(n) ? new Date(n) : new Date(v);
     }
+
     function setQueryParam(key, value){
       const url = new URL(location.href);
       url.searchParams.set(key, value);
@@ -112,6 +138,11 @@
           `Progress ${percent.toFixed(1)} percent. ${daysDone} of ${daysTotal} days elapsed.`;
       }
 
+      // Countdown label (optional)
+      const cdLabelText = p.get('cd_label') || '';
+      const cdLabelNode = document.getElementById('cdLabel');
+      cdLabelNode.textContent = cdLabelText;
+
       // Countdown
       const cdNode = document.getElementById('countdown');
       const cdMins = getNumber(p, 'cd', 'cd_mins');
@@ -119,7 +150,7 @@
 
       if (cdMins != null && !cdUntil){
         cdUntil = new Date(Date.now() + cdMins * 60_000);
-        setQueryParam('cd_until', String(cdUntil.getTime()));
+        setQueryParam('cd_until', String(cdUntil.getTime())); // sticky across reloads
       }
 
       if (!cdUntil){
@@ -129,20 +160,21 @@
 
       const remaining = cdUntil - Date.now();
       if (remaining <= 0){
-        cdNode.textContent = "00:00";
-        cdNode.style.color = "#c0392b";
+        cdNode.textContent = "0:00:00";
+        cdNode.style.color = "#c0392b"; // final red
         return;
       }
 
-      cdNode.textContent = fmtMMSS(remaining);
+      // set text
+      cdNode.textContent = fmtDMS(remaining);
 
-      // change colors based on thresholds
+      // thresholds: < 5 min (orange), < 1 min (red)
       if (remaining <= 60_000){
-        cdNode.style.color = "#c0392b"; // red
+        cdNode.style.color = "#c0392b";
       } else if (remaining <= 5*60_000){
-        cdNode.style.color = "#e67e22"; // orange
+        cdNode.style.color = "#e67e22";
       } else {
-        cdNode.style.color = "#222"; // default
+        cdNode.style.color = "#222";
       }
     }
 
