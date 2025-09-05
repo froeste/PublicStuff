@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Progress Bar Link Builder</title>
+<style>
+  :root { --gap: 12px; }
+  body { font-family: system-ui, Arial, sans-serif; margin: 24px; }
+  h1 { font-size: clamp(1.4rem, 2.8vw, 2rem); margin-bottom: 10px; }
+  p.tip { color:#444; margin-top:0; }
+  form { display:grid; gap: var(--gap); max-width: 880px; }
+  fieldset { border:1px solid #ddd; border-radius: 10px; padding: 16px; }
+  legend { padding: 0 8px; color:#333; font-weight: 600; }
+  .row { display:grid; grid-template-columns: 200px 1fr; gap: 10px; align-items: center; }
+  label { font-weight:600; }
+  input[type="text"], input[type="date"], input[type="datetime-local"], input[type="number"] {
+    width: 100%; padding: 10px; border:1px solid #bbb; border-radius:10px;
+  }
+  .actions { display:flex; gap:10px; flex-wrap: wrap; }
+  button {
+    padding: 10px 14px; border:0; border-radius:12px; cursor:pointer;
+    background:#6c5ce7; color:#fff; font-weight:600;
+  }
+  button.secondary { background:#444; }
+  button.ghost { background:#f3f3f3; color:#222; border:1px solid #ddd; }
+  .out { margin-top: 16px; }
+  textarea {
+    width: 100%; height: 120px; padding:12px; border:1px solid #bbb; border-radius:10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  .urlbox {
+    background:#fafafa; border:1px solid #ddd; border-radius:10px; padding:10px; word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  .help { font-size: .9rem; color:#555; margin-top:-6px; }
+  .error { color:#b00020; font-weight:600; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  @media (max-width: 720px){
+    .row { grid-template-columns: 1fr; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <h1>Progress Bar Link Builder</h1>
+  <p class="tip">Fill this out to generate a link (or embed code) to your <code>progressbar.htm</code> widget.</p>
+
+  <form id="builder" novalidate>
+    <fieldset>
+      <legend>Required dates (for progress bar)</legend>
+      <div class="row">
+        <label for="start">Start date</label>
+        <input id="start" name="start" type="date" required />
+      </div>
+      <div class="row">
+        <label for="end">End date</label>
+        <input id="end" name="end" type="date" required />
+      </div>
+      <div class="help">Use local dates. The widget computes elapsed % from your viewer’s timezone.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Text</legend>
+      <div class="row">
+        <label for="title">Big title (optional)</label>
+        <input id="title" name="title" type="text" placeholder="e.g., Advanced Ethical Hacking" />
+      </div>
+      <div class="row">
+        <label for="label">Bar label (optional)</label>
+        <input id="label" name="label" type="text" placeholder="e.g., Fall Term" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Countdown (optional)</legend>
+      <div class="grid2">
+        <div class="row">
+          <label for="cd">Countdown (minutes)</label>
+          <input id="cd" name="cd" type="number" min="1" step="1" placeholder="e.g., 10" />
+        </div>
+        <div class="row">
+          <label for="cd_until">Or count down until</label>
+          <input id="cd_until" name="cd_until" type="datetime-local" />
+        </div>
+      </div>
+      <div class="help">Use <strong>either</strong> minutes <em>or</em> a fixed end time. If you provide minutes, the widget will lock in a <code>cd_until</code> on first load so refreshing doesn’t reset the clock.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Output</legend>
+      <div class="row">
+        <label>Target file</label>
+        <div>
+          <div class="help">Publishing from: <code>https://froeste.github.io/PublicStuff/progressbar.htm</code></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="make">Generate</button>
+        <button type="button" id="open" class="secondary">Open link</button>
+        <button type="button" id="copy" class="ghost">Copy link</button>
+        <button type="button" id="copyEmbed" class="ghost">Copy embed code</button>
+      </div>
+
+      <div id="err" class="error" role="alert" aria-live="polite"></div>
+
+      <div class="out">
+        <div class="urlbox" id="urlbox">Your URL will appear here…</div>
+      </div>
+
+      <div class="out">
+        <label for="embed">Blackboard iframe embed</label>
+        <textarea id="embed" readonly></textarea>
+        <div class="help">Paste this into an Ultra Document → Add HTML.</div>
+      </div>
+    </fieldset>
+  </form>
+
+<script>
+(function(){
+  const BASE = "https://froeste.github.io/PublicStuff/progressbar.htm";
+  const startEl = document.getElementById('start');
+  const endEl = document.getElementById('end');
+  const titleEl = document.getElementById('title');
+  const labelEl = document.getElementById('label');
+  const cdEl = document.getElementById('cd');
+  const cdUntilEl = document.getElementById('cd_until');
+
+  const urlBox = document.getElementById('urlbox');
+  const embedBox = document.getElementById('embed');
+  const err = document.getElementById('err');
+
+  function buildUrl(){
+    err.textContent = "";
+    // validate required dates
+    const start = startEl.value;
+    const end = endEl.value;
+    if(!start || !end){
+      err.textContent = "Start and End dates are required.";
+      return null;
+    }
+    // end must be after start
+    const startD = new Date(start);
+    const endD = new Date(end);
+    if (!(startD instanceof Date && !isNaN(startD)) || !(endD instanceof Date && !isNaN(endD))){
+      err.textContent = "Dates look invalid. Please re-enter.";
+      return null
