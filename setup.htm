@@ -79,6 +79,10 @@
 
     <fieldset>
       <legend>Countdown (optional)</legend>
+      <div class="row">
+        <label for="cd_label">Countdown label</label>
+        <input id="cd_label" name="cd_label" type="text" placeholder="e.g., Activity ends in…" />
+      </div>
       <div class="grid2">
         <div class="row">
           <label for="cd">Countdown (minutes)</label>
@@ -129,11 +133,11 @@
 (function(){
   const BASE = "https://froeste.github.io/PublicStuff/progressbar.htm";
 
-  // --- DOM
   const startEl = document.getElementById('start');
   const endEl = document.getElementById('end');
   const titleEl = document.getElementById('title');
   const labelEl = document.getElementById('label');
+  const cdLabelEl = document.getElementById('cd_label');
   const cdEl = document.getElementById('cd');
   const cdUntilEl = document.getElementById('cd_until');
 
@@ -142,43 +146,23 @@
   const err = document.getElementById('err');
   const preview = document.getElementById('previewFrame');
 
-  // --- helpers
   function ymd(d){
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
-  function isValidDateStr(s){
-    const d = new Date(s);
-    return d instanceof Date && !isNaN(d);
-  }
+  function isValidDateStr(s){ const d = new Date(s); return d instanceof Date && !isNaN(d); }
+
   function buildUrl(){
     err.textContent = "";
 
     const start = startEl.value.trim();
     const end = endEl.value.trim();
-
-    if (!start || !end){
-      err.textContent = "Start and End dates are required.";
-      return null;
-    }
-    if (!isValidDateStr(start) || !isValidDateStr(end)){
-      err.textContent = "Dates look invalid. Please re-enter.";
-      return null;
-    }
-    if (new Date(end) <= new Date(start)){
-      err.textContent = "End date must be after Start date.";
-      return null;
-    }
+    if (!start || !end){ err.textContent = "Start and End dates are required."; return null; }
+    if (!isValidDateStr(start) || !isValidDateStr(end)){ err.textContent = "Invalid dates."; return null; }
+    if (new Date(end) <= new Date(start)){ err.textContent = "End date must be after Start date."; return null; }
 
     const cdMins = cdEl.value ? Number(cdEl.value) : null;
     const cdUntilRaw = cdUntilEl.value.trim();
-
-    if (cdMins && cdUntilRaw){
-      err.textContent = "Use either countdown minutes OR a fixed end time, not both.";
-      return null;
-    }
+    if (cdMins && cdUntilRaw){ err.textContent = "Use minutes OR a fixed end time, not both."; return null; }
 
     const u = new URL(BASE);
     u.searchParams.set('start', start);
@@ -186,23 +170,17 @@
 
     const title = titleEl.value.trim();
     const label = labelEl.value.trim();
+    const cdLabel = cdLabelEl.value.trim();
     if (title) u.searchParams.set('title', title);
     if (label) u.searchParams.set('label', label);
+    if (cdLabel) u.searchParams.set('cd_label', cdLabel);
 
     if (cdMins){
-      if (!(cdMins > 0 && Number.isFinite(cdMins))){
-        err.textContent = "Countdown minutes must be a positive number.";
-        return null;
-      }
+      if (!(cdMins > 0 && Number.isFinite(cdMins))){ err.textContent = "Countdown minutes must be positive."; return null; }
       u.searchParams.set('cd', String(Math.floor(cdMins)));
     } else if (cdUntilRaw){
-      // datetime-local returns local wall time "YYYY-MM-DDTHH:MM"
       const dt = new Date(cdUntilRaw);
-      if (isNaN(dt)){
-        err.textContent = "Countdown 'until' time is invalid.";
-        return null;
-      }
-      // Format with local offset like 2025-09-10T14:30:00-05:00
+      if (isNaN(dt)){ err.textContent = "Countdown until time is invalid."; return null; }
       const offMin = -dt.getTimezoneOffset();
       const sign = offMin >= 0 ? "+" : "-";
       const hh = String(Math.floor(Math.abs(offMin)/60)).padStart(2,'0');
@@ -212,8 +190,7 @@
       const d = String(dt.getDate()).padStart(2,'0');
       const H = String(dt.getHours()).padStart(2,'0');
       const M = String(dt.getMinutes()).padStart(2,'0');
-      const S = "00";
-      const withOffset = `${y}-${mo}-${d}T${H}:${M}:${S}${sign}${hh}:${mm}`;
+      const withOffset = `${y}-${mo}-${d}T${H}:${M}:00${sign}${hh}:${mm}`;
       u.searchParams.set('cd_until', withOffset);
     }
 
@@ -223,7 +200,7 @@
   function buildEmbed(url){
     return `<iframe
   src="${url}"
-  width="100%" height="300" style="border:0" loading="lazy"
+  width="100%" height="320" style="border:0" loading="lazy"
   title="Course Progress">
 </iframe>`;
   }
@@ -242,46 +219,16 @@
     return url;
   }
 
-  // --- events
   document.getElementById('make').addEventListener('click', updateOutputs);
-  document.getElementById('open').addEventListener('click', () => {
-    const url = updateOutputs();
-    if (url) window.open(url, '_blank', 'noopener');
-  });
-  document.getElementById('copy').addEventListener('click', async () => {
-    const url = updateOutputs();
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert('Link copied to clipboard.');
-    } catch {
-      alert('Could not copy automatically. Copy from the box above.');
-    }
-  });
-  document.getElementById('copyEmbed').addEventListener('click', async () => {
-    const url = updateOutputs();
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(embedBox.value);
-      alert('Embed code copied to clipboard.');
-    } catch {
-      alert('Could not copy automatically. Copy from the textarea below.');
-    }
-  });
+  document.getElementById('open').addEventListener('click', () => { const url = updateOutputs(); if (url) window.open(url, '_blank'); });
+  document.getElementById('copy').addEventListener('click', async () => { const url = updateOutputs(); if (url) await navigator.clipboard.writeText(url); });
+  document.getElementById('copyEmbed').addEventListener('click', async () => { const url = updateOutputs(); if (url) await navigator.clipboard.writeText(embedBox.value); });
 
-  // --- sensible defaults
-  const today = new Date();
-  const plus90 = new Date(Date.now() + 90*24*60*60*1000);
-  startEl.value = ymd(today);
-  endEl.value = ymd(plus90);
+  const today = new Date(); const plus90 = new Date(Date.now() + 90*24*60*60*1000);
+  startEl.value = ymd(today); endEl.value = ymd(plus90);
 
-  // live updates as you type/select
-  document.querySelectorAll('input').forEach(el => {
-    el.addEventListener('input', updateOutputs);
-    el.addEventListener('change', updateOutputs);
-  });
+  document.querySelectorAll('input').forEach(el => { el.addEventListener('input', updateOutputs); el.addEventListener('change', updateOutputs); });
 
-  // initial render
   updateOutputs();
 })();
 </script>
