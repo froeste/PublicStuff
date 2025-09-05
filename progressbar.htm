@@ -16,8 +16,15 @@
     .label { font-weight: 600; margin-bottom: .25rem; text-align: center; }
     .bar { background:#eee; border-radius: 10px; height: 18px; overflow: hidden; }
     .fill { background: #6c5ce7; height:100%; width: var(--w); transition: width .6s ease; }
-    .countdown { margin-top:.35rem; font-size: 1.1rem; font-variant-numeric: tabular-nums; text-align:center; }
     .meta { margin-top: .5rem; font-size: .9rem; color:#444; text-align: center; }
+    .countdown {
+      margin-top: 1rem;
+      font-size: clamp(1.25rem, 5vw, 2rem);
+      font-weight: 600;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: #222; /* default */
+    }
     .sr-only { position: absolute; left: -10000px; }
   </style>
 </head>
@@ -28,15 +35,16 @@
     <div class="bar" aria-label="Progress" aria-live="polite">
       <div class="fill" id="fill"></div>
     </div>
-    <!-- Countdown lives here -->
-    <div id="countdown" class="countdown" aria-live="polite"></div>
 
     <div class="meta" id="meta"></div>
+
+    <!-- countdown under everything -->
+    <div id="countdown" class="countdown" aria-live="polite"></div>
+
     <div class="sr-only" id="sr"></div>
   </div>
 
   <script>
-    // --- helpers ---
     const MS_PER_DAY = 86400000;
     function fmtDate(dt){ return dt.toLocaleString(undefined,{dateStyle:'medium'}); }
     function pct(now, start, end){
@@ -65,7 +73,6 @@
     }
     function parseDateish(v){
       if (!v) return null;
-      // Accept epoch ms or ISO
       const n = Number(v);
       return !Number.isNaN(n) ? new Date(n) : new Date(v);
     }
@@ -75,18 +82,15 @@
       history.replaceState(null, '', url);
     }
 
-    // --- state & render ---
     function render(){
       const p = new URLSearchParams(location.search);
       const title = p.get('title') || '';
       const label = p.get('label') || 'Course time elapsed';
 
-      // Dates for the progress bar
       const start = new Date(p.get('start'));
       const end   = new Date(p.get('end'));
       const now   = new Date();
 
-      // Title
       document.getElementById('title').textContent = title;
 
       // Progress bar
@@ -110,36 +114,39 @@
 
       // Countdown
       const cdNode = document.getElementById('countdown');
-
-      // Allow either ?cd=25 or ?cd_mins=25
       const cdMins = getNumber(p, 'cd', 'cd_mins');
-
-      // If a fixed end is provided, prefer it (stable across reloads)
       let cdUntil = parseDateish(p.get('cd_until'));
 
       if (cdMins != null && !cdUntil){
-        // Create a sticky end time and persist it to the URL
         cdUntil = new Date(Date.now() + cdMins * 60_000);
-        setQueryParam('cd_until', String(cdUntil.getTime())); // epoch ms for simplicity
+        setQueryParam('cd_until', String(cdUntil.getTime()));
       }
 
       if (!cdUntil){
-        cdNode.textContent = ''; // no countdown passed in
+        cdNode.textContent = '';
         return;
       }
 
       const remaining = cdUntil - Date.now();
       if (remaining <= 0){
         cdNode.textContent = "00:00";
+        cdNode.style.color = "#c0392b";
         return;
       }
+
       cdNode.textContent = fmtMMSS(remaining);
+
+      // change colors based on thresholds
+      if (remaining <= 60_000){
+        cdNode.style.color = "#c0392b"; // red
+      } else if (remaining <= 5*60_000){
+        cdNode.style.color = "#e67e22"; // orange
+      } else {
+        cdNode.style.color = "#222"; // default
+      }
     }
 
-    // First paint immediately
     render();
-
-    // Tick every second for countdown and to keep the bar fresh enough
     setInterval(render, 1000);
   </script>
 </body>
