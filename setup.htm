@@ -9,7 +9,7 @@
   body { font-family: system-ui, Arial, sans-serif; margin: 24px; }
   h1 { font-size: clamp(1.4rem, 2.8vw, 2rem); margin-bottom: 10px; }
   p.tip { color:#444; margin-top:0; }
-  form { display:grid; gap: var(--gap); max-width: 880px; }
+  form { display:grid; gap: var(--gap); max-width: 980px; }
   fieldset { border:1px solid #ddd; border-radius: 10px; padding: 16px; }
   legend { padding: 0 8px; color:#333; font-weight: 600; }
   .row { display:grid; grid-template-columns: 200px 1fr; gap: 10px; align-items: center; }
@@ -36,6 +36,11 @@
   .help { font-size: .9rem; color:#555; margin-top:-6px; }
   .error { color:#b00020; font-weight:600; }
   .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .preview {
+    margin-top: 20px; border:1px solid #ddd; border-radius:12px; padding:12px; background:#fafafa;
+  }
+  .preview h2 { margin: 0 0 8px 0; font-size:1.1rem; }
+  iframe#previewFrame { width:100%; height:360px; border:0; background:#fff; }
   @media (max-width: 720px){
     .row { grid-template-columns: 1fr; }
     .grid2 { grid-template-columns: 1fr; }
@@ -44,7 +49,7 @@
 </head>
 <body>
   <h1>Progress Bar Link Builder</h1>
-  <p class="tip">Fill this out to generate a link (or embed code) to your <code>progressbar.htm</code> widget.</p>
+  <p class="tip">Generate a link or embed code for <code>progressbar.htm</code>, then preview it live.</p>
 
   <form id="builder" novalidate>
     <fieldset>
@@ -57,7 +62,7 @@
         <label for="end">End date</label>
         <input id="end" name="end" type="date" required />
       </div>
-      <div class="help">Use local dates. The widget computes elapsed % from your viewer’s timezone.</div>
+      <div class="help">Use local dates. The widget computes elapsed % from the viewer’s timezone.</div>
     </fieldset>
 
     <fieldset>
@@ -84,16 +89,14 @@
           <input id="cd_until" name="cd_until" type="datetime-local" />
         </div>
       </div>
-      <div class="help">Use <strong>either</strong> minutes <em>or</em> a fixed end time. If you provide minutes, the widget will lock in a <code>cd_until</code> on first load so refreshing doesn’t reset the clock.</div>
+      <div class="help">Use <strong>either</strong> minutes <em>or</em> a fixed end time. If you provide minutes, the widget will lock in <code>cd_until</code> on first load to prevent reset on refresh.</div>
     </fieldset>
 
     <fieldset>
       <legend>Output</legend>
       <div class="row">
         <label>Target file</label>
-        <div>
-          <div class="help">Publishing from: <code>https://froeste.github.io/PublicStuff/progressbar.htm</code></div>
-        </div>
+        <div class="help">Publishing from: <code>https://froeste.github.io/PublicStuff/progressbar.htm</code></div>
       </div>
 
       <div class="actions">
@@ -115,11 +118,18 @@
         <div class="help">Paste this into an Ultra Document → Add HTML.</div>
       </div>
     </fieldset>
+
+    <div class="preview">
+      <h2>Live preview</h2>
+      <iframe id="previewFrame" title="Progress bar preview"></iframe>
+    </div>
   </form>
 
 <script>
 (function(){
   const BASE = "https://froeste.github.io/PublicStuff/progressbar.htm";
+
+  // --- DOM
   const startEl = document.getElementById('start');
   const endEl = document.getElementById('end');
   const titleEl = document.getElementById('title');
@@ -130,19 +140,150 @@
   const urlBox = document.getElementById('urlbox');
   const embedBox = document.getElementById('embed');
   const err = document.getElementById('err');
+  const preview = document.getElementById('previewFrame');
 
+  // --- helpers
+  function ymd(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function isValidDateStr(s){
+    const d = new Date(s);
+    return d instanceof Date && !isNaN(d);
+  }
   function buildUrl(){
     err.textContent = "";
-    // validate required dates
-    const start = startEl.value;
-    const end = endEl.value;
-    if(!start || !end){
+
+    const start = startEl.value.trim();
+    const end = endEl.value.trim();
+
+    if (!start || !end){
       err.textContent = "Start and End dates are required.";
       return null;
     }
-    // end must be after start
-    const startD = new Date(start);
-    const endD = new Date(end);
-    if (!(startD instanceof Date && !isNaN(startD)) || !(endD instanceof Date && !isNaN(endD))){
+    if (!isValidDateStr(start) || !isValidDateStr(end)){
       err.textContent = "Dates look invalid. Please re-enter.";
-      return null
+      return null;
+    }
+    if (new Date(end) <= new Date(start)){
+      err.textContent = "End date must be after Start date.";
+      return null;
+    }
+
+    const cdMins = cdEl.value ? Number(cdEl.value) : null;
+    const cdUntilRaw = cdUntilEl.value.trim();
+
+    if (cdMins && cdUntilRaw){
+      err.textContent = "Use either countdown minutes OR a fixed end time, not both.";
+      return null;
+    }
+
+    const u = new URL(BASE);
+    u.searchParams.set('start', start);
+    u.searchParams.set('end', end);
+
+    const title = titleEl.value.trim();
+    const label = labelEl.value.trim();
+    if (title) u.searchParams.set('title', title);
+    if (label) u.searchParams.set('label', label);
+
+    if (cdMins){
+      if (!(cdMins > 0 && Number.isFinite(cdMins))){
+        err.textContent = "Countdown minutes must be a positive number.";
+        return null;
+      }
+      u.searchParams.set('cd', String(Math.floor(cdMins)));
+    } else if (cdUntilRaw){
+      // datetime-local returns local wall time "YYYY-MM-DDTHH:MM"
+      const dt = new Date(cdUntilRaw);
+      if (isNaN(dt)){
+        err.textContent = "Countdown 'until' time is invalid.";
+        return null;
+      }
+      // Format with local offset like 2025-09-10T14:30:00-05:00
+      const offMin = -dt.getTimezoneOffset();
+      const sign = offMin >= 0 ? "+" : "-";
+      const hh = String(Math.floor(Math.abs(offMin)/60)).padStart(2,'0');
+      const mm = String(Math.abs(offMin)%60).padStart(2,'0');
+      const y = dt.getFullYear();
+      const mo = String(dt.getMonth()+1).padStart(2,'0');
+      const d = String(dt.getDate()).padStart(2,'0');
+      const H = String(dt.getHours()).padStart(2,'0');
+      const M = String(dt.getMinutes()).padStart(2,'0');
+      const S = "00";
+      const withOffset = `${y}-${mo}-${d}T${H}:${M}:${S}${sign}${hh}:${mm}`;
+      u.searchParams.set('cd_until', withOffset);
+    }
+
+    return u.toString();
+  }
+
+  function buildEmbed(url){
+    return `<iframe
+  src="${url}"
+  width="100%" height="300" style="border:0" loading="lazy"
+  title="Course Progress">
+</iframe>`;
+  }
+
+  function updateOutputs(){
+    const url = buildUrl();
+    if (!url){
+      urlBox.textContent = "Your URL will appear here…";
+      embedBox.value = "";
+      preview.removeAttribute('src');
+      return null;
+    }
+    urlBox.textContent = url;
+    embedBox.value = buildEmbed(url);
+    preview.src = url;
+    return url;
+  }
+
+  // --- events
+  document.getElementById('make').addEventListener('click', updateOutputs);
+  document.getElementById('open').addEventListener('click', () => {
+    const url = updateOutputs();
+    if (url) window.open(url, '_blank', 'noopener');
+  });
+  document.getElementById('copy').addEventListener('click', async () => {
+    const url = updateOutputs();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Link copied to clipboard.');
+    } catch {
+      alert('Could not copy automatically. Copy from the box above.');
+    }
+  });
+  document.getElementById('copyEmbed').addEventListener('click', async () => {
+    const url = updateOutputs();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(embedBox.value);
+      alert('Embed code copied to clipboard.');
+    } catch {
+      alert('Could not copy automatically. Copy from the textarea below.');
+    }
+  });
+
+  // --- sensible defaults
+  const today = new Date();
+  const plus90 = new Date(Date.now() + 90*24*60*60*1000);
+  startEl.value = ymd(today);
+  endEl.value = ymd(plus90);
+
+  // live updates as you type/select
+  document.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', updateOutputs);
+    el.addEventListener('change', updateOutputs);
+  });
+
+  // initial render
+  updateOutputs();
+})();
+</script>
+</body>
+</html>
