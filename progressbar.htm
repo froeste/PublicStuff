@@ -7,11 +7,17 @@
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin: 1rem; }
     .wrap { max-width: 700px; margin: 0 auto; }
-    .title { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; text-align: center; }
-    .label { font-weight: 600; margin-bottom: .5rem; }
+    .title {
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      text-align: center; line-height: 1.2;
+    }
+    .label { font-weight: 600; margin-bottom: .25rem; text-align: center; }
     .bar { background:#eee; border-radius: 10px; height: 18px; overflow: hidden; }
     .fill { background: #6c5ce7; height:100%; width: var(--w); transition: width .6s ease; }
-    .meta { margin-top: .5rem; font-size: .9rem; color:#444; }
+    .countdown { margin-top:.35rem; font-size: 1.1rem; font-variant-numeric: tabular-nums; text-align:center; }
+    .meta { margin-top: .5rem; font-size: .9rem; color:#444; text-align: center; }
     .sr-only { position: absolute; left: -10000px; }
   </style>
 </head>
@@ -22,51 +28,119 @@
     <div class="bar" aria-label="Progress" aria-live="polite">
       <div class="fill" id="fill"></div>
     </div>
+    <!-- Countdown lives here -->
+    <div id="countdown" class="countdown" aria-live="polite"></div>
+
     <div class="meta" id="meta"></div>
     <div class="sr-only" id="sr"></div>
   </div>
 
   <script>
-    function fmt(dt){ return dt.toLocaleString(undefined,{dateStyle:'medium'}); }
+    // --- helpers ---
+    const MS_PER_DAY = 86400000;
+    function fmtDate(dt){ return dt.toLocaleString(undefined,{dateStyle:'medium'}); }
     function pct(now, start, end){
       const total = end - start;
+      if (isNaN(total) || total <= 0) return 0;
       if (now <= start) return 0;
       if (now >= end) return 100;
       return ((now - start) / total) * 100;
     }
-    function run(){
+    function two(n){ return String(n).padStart(2,'0'); }
+    function fmtMMSS(ms){
+      if (ms <= 0) return '00:00';
+      const s = Math.ceil(ms/1000);
+      const m = Math.floor(s/60);
+      const sec = s % 60;
+      return `${two(m)}:${two(sec)}`;
+    }
+    function getNumber(p, ...keys){
+      for (const k of keys){
+        const v = p.get(k);
+        if (v == null) continue;
+        const n = Number(v);
+        if (!Number.isNaN(n)) return n;
+      }
+      return null;
+    }
+    function parseDateish(v){
+      if (!v) return null;
+      // Accept epoch ms or ISO
+      const n = Number(v);
+      return !Number.isNaN(n) ? new Date(n) : new Date(v);
+    }
+    function setQueryParam(key, value){
+      const url = new URL(location.href);
+      url.searchParams.set(key, value);
+      history.replaceState(null, '', url);
+    }
+
+    // --- state & render ---
+    function render(){
       const p = new URLSearchParams(location.search);
       const title = p.get('title') || '';
       const label = p.get('label') || 'Course time elapsed';
 
+      // Dates for the progress bar
       const start = new Date(p.get('start'));
       const end   = new Date(p.get('end'));
       const now   = new Date();
 
-      // Set the title if provided
+      // Title
       document.getElementById('title').textContent = title;
 
+      // Progress bar
       if (isNaN(start) || isNaN(end) || end <= start){
         document.getElementById('heading').textContent = 'Invalid dates';
         document.getElementById('meta').textContent = 'Check your start/end parameters.';
+      } else {
+        const percent = Math.max(0, Math.min(100, pct(now, start, end)));
+        document.documentElement.style.setProperty('--w', percent.toFixed(2) + '%');
+        document.getElementById('heading').textContent = `${label}: ${percent.toFixed(1)}%`;
+
+        const daysTotal = Math.round((end - start)/MS_PER_DAY);
+        const daysLeft  = Math.max(0, Math.ceil((end - now)/MS_PER_DAY));
+        const daysDone  = Math.max(0, daysTotal - daysLeft);
+        document.getElementById('meta').textContent =
+          `${fmtDate(start)} → ${fmtDate(end)} • ${daysDone}/${daysTotal} days elapsed • ${daysLeft} days remaining`;
+
+        document.getElementById('sr').textContent =
+          `Progress ${percent.toFixed(1)} percent. ${daysDone} of ${daysTotal} days elapsed.`;
+      }
+
+      // Countdown
+      const cdNode = document.getElementById('countdown');
+
+      // Allow either ?cd=25 or ?cd_mins=25
+      const cdMins = getNumber(p, 'cd', 'cd_mins');
+
+      // If a fixed end is provided, prefer it (stable across reloads)
+      let cdUntil = parseDateish(p.get('cd_until'));
+
+      if (cdMins != null && !cdUntil){
+        // Create a sticky end time and persist it to the URL
+        cdUntil = new Date(Date.now() + cdMins * 60_000);
+        setQueryParam('cd_until', String(cdUntil.getTime())); // epoch ms for simplicity
+      }
+
+      if (!cdUntil){
+        cdNode.textContent = ''; // no countdown passed in
         return;
       }
 
-      const percent = Math.max(0, Math.min(100, pct(now, start, end)));
-      document.documentElement.style.setProperty('--w', percent.toFixed(2) + '%');
-      document.getElementById('heading').textContent = `${label}: ${percent.toFixed(1)}%`;
-
-      const daysTotal = Math.round((end - start)/86400000);
-      const daysLeft  = Math.max(0, Math.ceil((end - now)/86400000));
-      const daysDone  = Math.max(0, daysTotal - daysLeft);
-      document.getElementById('meta').textContent =
-        `${fmt(start)} → ${fmt(end)}  •  ${daysDone}/${daysTotal} days elapsed  •  ${daysLeft} days remaining`;
-
-      document.getElementById('sr').textContent =
-        `Progress ${percent.toFixed(1)} percent. ${daysDone} of ${daysTotal} days elapsed.`;
+      const remaining = cdUntil - Date.now();
+      if (remaining <= 0){
+        cdNode.textContent = "00:00";
+        return;
+      }
+      cdNode.textContent = fmtMMSS(remaining);
     }
-    run();
-    setInterval(run, 60_000);
+
+    // First paint immediately
+    render();
+
+    // Tick every second for countdown and to keep the bar fresh enough
+    setInterval(render, 1000);
   </script>
 </body>
 </html>
