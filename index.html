@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CompTIA Troubleshooting Challenge</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #64748b;
+      --border: #dbe3ee;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --good: #166534;
+      --good-bg: #dcfce7;
+      --bad: #991b1b;
+      --bad-bg: #fee2e2;
+      --warn: #92400e;
+      --warn-bg: #fef3c7;
+      --shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 40%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      line-height: 1.1;
+    }
+
+    h2, h3 { margin-top: 0; }
+
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .mode-card {
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #fff;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .mode-card:hover,
+    .mode-card:focus-within {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .mode-card input { margin-right: 8px; }
+
+    .mode-card strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .small { font-size: .92rem; color: var(--muted); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, .3);
+      outline-offset: 2px;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .primary:hover { background: var(--accent-dark); }
+
+    .secondary {
+      background: #e8eef8;
+      color: #1e293b;
+    }
+
+    .secondary:hover { background: #dfe7f2; }
+
+    .game {
+      display: none;
+      gap: 18px;
+    }
+
+    .statusbar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat .value {
+      font-size: 1.45rem;
+      font-weight: 800;
+      display: block;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .ticket-label {
+      display: inline-block;
+      font-size: .8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      background: #e8eef8;
+      color: #334155;
+      border-radius: 999px;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+    }
+
+    .scenario {
+      font-size: 1.15rem;
+      margin-bottom: 18px;
+    }
+
+    .question {
+      font-weight: 800;
+      margin-bottom: 14px;
+      font-size: 1.05rem;
+    }
+
+    .answers {
+      display: grid;
+      gap: 10px;
+    }
+
+    .answer-btn {
+      text-align: left;
+      width: 100%;
+      background: #f8fafc;
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      padding: 14px 16px;
+    }
+
+    .answer-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .answer-btn:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+
+    .answer-btn.correct {
+      background: var(--good-bg);
+      border-color: #86efac;
+      color: var(--good);
+    }
+
+    .answer-btn.incorrect {
+      background: var(--bad-bg);
+      border-color: #fca5a5;
+      color: var(--bad);
+    }
+
+    .feedback {
+      display: none;
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+    }
+
+    .feedback.good {
+      display: block;
+      background: var(--good-bg);
+      border-color: #86efac;
+      color: var(--good);
+    }
+
+    .feedback.bad {
+      display: block;
+      background: var(--bad-bg);
+      border-color: #fca5a5;
+      color: var(--bad);
+    }
+
+    .step-reference {
+      margin-top: 18px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+
+    .step-reference ol {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    .step-reference li { margin: 5px 0; }
+
+    .results {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .score-big {
+      font-size: 3rem;
+      font-weight: 900;
+      margin: 4px 0;
+    }
+
+    .review {
+      margin-top: 22px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .review-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .review-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: .88rem;
+      text-align: center;
+    }
+
+    @media (max-width: 680px) {
+      .mode-grid { grid-template-columns: 1fr; }
+      .statusbar { grid-template-columns: 1fr; }
+      .card, .hero, .results { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section id="startScreen" class="hero">
+      <h1>CompTIA Troubleshooting Challenge</h1>
+      <p class="subtitle">
+        Practice the troubleshooting methodology using realistic IT support scenarios.
+        Choose the 6-step CompTIA version or the 7-step Cengage-style version.
+      </p>
+
+      <div class="mode-grid" role="radiogroup" aria-label="Troubleshooting process version">
+        <label class="mode-card">
+          <strong><input type="radio" name="mode" value="6" checked> 6-Step CompTIA Method</strong>
+          <span class="small">
+            Combines “establish a plan” and “implement the solution” into one step.
+          </span>
+        </label>
+
+        <label class="mode-card">
+          <strong><input type="radio" name="mode" value="7"> 7-Step Cengage-Style Method</strong>
+          <span class="small">
+            Separates planning the solution from implementing the solution.
+          </span>
+        </label>
+      </div>
+
+      <div class="controls">
+        <button class="primary" id="startBtn">Start Challenge</button>
+      </div>
+
+      <div class="step-reference" id="startReference"></div>
+    </section>
+
+    <section id="gameScreen" class="game">
+      <div class="statusbar">
+        <div class="stat"><span class="value" id="questionNum">1</span>Question</div>
+        <div class="stat"><span class="value" id="score">0</span>Score</div>
+        <div class="stat"><span class="value" id="modeLabel">6-Step</span>Mode</div>
+      </div>
+
+      <article class="card">
+        <span class="ticket-label" id="ticketLabel">Support Ticket</span>
+        <div class="scenario" id="scenario"></div>
+        <div class="question" id="questionText"></div>
+        <div class="answers" id="answers"></div>
+
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+
+        <div class="controls">
+          <button class="primary" id="nextBtn" style="display:none;">Next Scenario</button>
+          <button class="secondary" id="quitBtn">Restart</button>
+        </div>
+      </article>
+
+      <div class="step-reference" id="gameReference"></div>
+    </section>
+
+    <section id="resultsScreen" class="results">
+      <h2>Challenge Complete</h2>
+      <div class="score-big" id="finalScore">0%</div>
+      <p id="resultMessage"></p>
+      <p><strong id="finalBreakdown"></strong></p>
+
+      <div class="controls">
+        <button class="primary" id="playAgainBtn">Play Again</button>
+      </div>
+
+      <div class="review" id="review"></div>
+    </section>
+
+    <div class="footer-note">
+      Designed for classroom practice of CompTIA A+ troubleshooting methodology.
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const steps6 = [
+        "Identify the problem",
+        "Establish a theory of probable cause",
+        "Test the theory to determine the cause",
+        "Establish a plan of action and implement the solution",
+        "Verify full system functionality and implement preventive measures",
+        "Document findings, actions, and outcomes"
+      ];
+
+      const steps7 = [
+        "Identify the problem",
+        "Establish a theory of probable cause",
+        "Test the theory to determine the cause",
+        "Establish a plan of action",
+        "Implement the solution",
+        "Verify full system functionality and implement preventive measures",
+        "Document findings, actions, and outcomes"
+      ];
+
+      /*
+        Every scenario stores the correct conceptual stage using a key.
+        "planImplement" maps to Step 4 in six-step mode.
+        In seven-step mode, questions that specifically concern carrying out
+        the fix map to Step 5 while planning questions map to Step 4.
+      */
+      const scenarios = [
+        {
+          title: "No Internet Access",
+          scenario: "A user reports that the laptop shows it is connected to Wi-Fi, but no websites will load.",
+          question: "What should the technician do FIRST?",
+          options: [
+            "Ask whether other devices can access the Internet and when the problem started",
+            "Replace the wireless adapter",
+            "Reset the router to factory defaults",
+            "Document the issue as a DNS failure"
+          ],
+          correct: 0,
+          stage6: 1,
+          stage7: 1,
+          explanation: "The technician should gather information and determine the scope of the problem before forming a theory."
+        },
+        {
+          title: "APIPA Address",
+          scenario: "The affected computer has an IPv4 address of 169.254.21.87. Other computers on the network are working normally.",
+          question: "Which troubleshooting step is represented by thinking, “The computer may not be receiving a DHCP lease”?",
+          options: [
+            "Identify the problem",
+            "Establish a theory of probable cause",
+            "Verify functionality",
+            "Document findings"
+          ],
+          correct: 1,
+          stage6: 2,
+          stage7: 2,
+          explanation: "Suspecting a DHCP problem is a theory of probable cause."
+        },
+        {
+          title: "Testing DHCP",
+          scenario: "You suspect the computer is failing to obtain an address from DHCP.",
+          question: "You run ipconfig /release and ipconfig /renew and then check the new IP address. Which step are you performing?",
+          options: [
+            "Test the theory to determine the cause",
+            "Document the issue",
+            "Identify the problem",
+            "Implement preventive measures"
+          ],
+          correct: 0,
+          stage6: 3,
+          stage7: 3,
+          explanation: "The command is being used to test whether the suspected DHCP issue is actually the cause."
+        },
+        {
+          title: "Failed Network Cable",
+          scenario: "Testing shows that a damaged Ethernet cable is causing intermittent connectivity.",
+          question: "You decide to replace the cable with a known-good cable and then perform the replacement.",
+          options: [
+            "Identify the problem",
+            "Establish a theory",
+            "Plan and implement the solution",
+            "Document findings"
+          ],
+          correct: 2,
+          stage6: 4,
+          stage7: 5,
+          explanation6: "In the six-step CompTIA method, planning and implementing the solution are combined into Step 4.",
+          explanation7: "In the seven-step version, actually replacing the cable is Step 5: Implement the solution."
+        },
+        {
+          title: "Printer Offline",
+          scenario: "A network printer is reported offline. You discover its Ethernet cable was disconnected and reconnect it.",
+          question: "What should you do NEXT?",
+          options: [
+            "Close the ticket immediately",
+            "Print a test page and confirm users can print",
+            "Replace the printer",
+            "Change the printer's IP address"
+          ],
+          correct: 1,
+          stage6: 5,
+          stage7: 6,
+          explanation: "After implementing a fix, verify full functionality before considering the problem resolved."
+        },
+        {
+          title: "Ticket Notes",
+          scenario: "You resolved a user's printer issue by reconnecting a loose network cable and verified that printing now works.",
+          question: "What is the final troubleshooting step?",
+          options: [
+            "Form another theory",
+            "Restart the computer",
+            "Document the problem, cause, fix, and verification",
+            "Escalate the ticket"
+          ],
+          correct: 2,
+          stage6: 6,
+          stage7: 7,
+          explanation: "The final step is documenting the findings, actions, and outcome."
+        },
+        {
+          title: "Computer Will Not Power On",
+          scenario: "A desktop computer does not power on when the user presses the power button.",
+          question: "Which action BEST belongs in the first troubleshooting step?",
+          options: [
+            "Ask what changed recently and check whether the power cable and outlet are working",
+            "Immediately replace the power supply",
+            "Update the BIOS",
+            "Create a ticket closure note"
+          ],
+          correct: 0,
+          stage6: 1,
+          stage7: 1,
+          explanation: "Start by gathering information, questioning the user, checking obvious conditions, and determining the scope."
+        },
+        {
+          title: "No Display",
+          scenario: "A computer powers on, but the monitor displays 'No Signal.' The monitor has power.",
+          question: "After checking the cable, you suspect the computer's video output is the cause. What step does that suspicion represent?",
+          options: [
+            "Establish a theory of probable cause",
+            "Implement the solution",
+            "Verify functionality",
+            "Document findings"
+          ],
+          correct: 0,
+          stage6: 2,
+          stage7: 2,
+          explanation: "At this point you are forming a theory about the most likely cause."
+        },
+        {
+          title: "Overheating PC",
+          scenario: "A workstation randomly shuts down. Monitoring shows CPU temperatures are extremely high and the CPU fan is not spinning.",
+          question: "Before replacing the fan, you check whether the fan connector is loose and test it again. Which step is this?",
+          options: [
+            "Identify the problem",
+            "Test the theory",
+            "Document findings",
+            "Verify full system functionality"
+          ],
+          correct: 1,
+          stage6: 3,
+          stage7: 3,
+          explanation: "You are testing whether the suspected fan connection is the actual cause."
+        },
+        {
+          title: "Slow Computer",
+          scenario: "A user's PC has become very slow. Task Manager shows one application consuming nearly all CPU resources.",
+          question: "You determine the application needs to be updated. You review the update instructions and decide how to apply the update with minimal user disruption.",
+          options: [
+            "Identify the problem",
+            "Establish a plan of action",
+            "Verify functionality",
+            "Document findings"
+          ],
+          correct: 1,
+          stage6: 4,
+          stage7: 4,
+          explanation6: "Planning the fix is part of Step 4 in the six-step process.",
+          explanation7: "In the seven-step process, this is specifically Step 4: Establish a plan of action."
+        },
+        {
+          title: "Application Crash",
+          scenario: "An application crashes at startup. You determine its configuration file is corrupted and decide to recreate the file.",
+          question: "In the seven-step version, actually recreating the configuration file belongs to which stage?",
+          options: [
+            "Establish a theory",
+            "Test the theory",
+            "Implement the solution",
+            "Verify functionality"
+          ],
+          correct: 2,
+          stage6: 4,
+          stage7: 5,
+          explanation6: "The six-step method combines planning and implementation into Step 4.",
+          explanation7: "The seven-step method treats implementation as Step 5."
+        },
+        {
+          title: "Malware Cleanup",
+          scenario: "A workstation was infected with malware. The malware has been removed and the system is functioning normally.",
+          question: "Which action BEST represents the verification and prevention step?",
+          options: [
+            "Ask the user when the problem began",
+            "Run another malware scan, test normal functions, and ensure security updates are enabled",
+            "Write down the malware name before doing anything else",
+            "Assume the problem is fixed because the pop-ups stopped"
+          ],
+          correct: 1,
+          stage6: 5,
+          stage7: 6,
+          explanation: "Verification confirms the fix worked, while preventive measures reduce the chance of recurrence."
+        },
+        {
+          title: "No Audio",
+          scenario: "A user has no sound. You discover the wrong output device was selected and correct it. Audio now works.",
+          question: "What information should be recorded before closing the ticket?",
+          options: [
+            "Only the user's name",
+            "Only the time spent on the ticket",
+            "The symptoms, cause, corrective action, and verification results",
+            "Nothing, because the issue was simple"
+          ],
+          correct: 2,
+          stage6: 6,
+          stage7: 7,
+          explanation: "Good documentation records what happened, what caused it, what was done, and whether the fix worked."
+        },
+        {
+          title: "Windows Update Failure",
+          scenario: "A Windows update repeatedly fails with an error code.",
+          question: "What is the BEST next action while establishing a theory of probable cause?",
+          options: [
+            "Research the error code and consider recent system changes",
+            "Reimage the computer immediately",
+            "Close the ticket",
+            "Replace the motherboard"
+          ],
+          correct: 0,
+          stage6: 2,
+          stage7: 2,
+          explanation: "Researching symptoms and error codes can help build a reasonable theory before making changes."
+        },
+        {
+          title: "DNS Problem",
+          scenario: "A computer can ping 8.8.8.8 but cannot open websites by name.",
+          question: "Which action BEST tests the theory that DNS is the problem?",
+          options: [
+            "Replace the network card",
+            "Run nslookup on a known hostname",
+            "Reset Windows",
+            "Document that the Internet is down"
+          ],
+          correct: 1,
+          stage6: 3,
+          stage7: 3,
+          explanation: "nslookup directly tests whether name resolution is functioning."
+        }
+      ];
+
+      const els = {
+        startScreen: document.getElementById("startScreen"),
+        gameScreen: document.getElementById("gameScreen"),
+        resultsScreen: document.getElementById("resultsScreen"),
+        startBtn: document.getElementById("startBtn"),
+        nextBtn: document.getElementById("nextBtn"),
+        quitBtn: document.getElementById("quitBtn"),
+        playAgainBtn: document.getElementById("playAgainBtn"),
+        questionNum: document.getElementById("questionNum"),
+        score: document.getElementById("score"),
+        modeLabel: document.getElementById("modeLabel"),
+        ticketLabel: document.getElementById("ticketLabel"),
+        scenario: document.getElementById("scenario"),
+        questionText: document.getElementById("questionText"),
+        answers: document.getElementById("answers"),
+        feedback: document.getElementById("feedback"),
+        startReference: document.getElementById("startReference"),
+        gameReference: document.getElementById("gameReference"),
+        finalScore: document.getElementById("finalScore"),
+        finalBreakdown: document.getElementById("finalBreakdown"),
+        resultMessage: document.getElementById("resultMessage"),
+        review: document.getElementById("review")
+      };
+
+      let mode = 6;
+      let deck = [];
+      let current = 0;
+      let score = 0;
+      let answered = false;
+      let reviewItems = [];
+      const questionsPerGame = 10;
+
+      function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function renderReference(target, selectedMode) {
+        const steps = selectedMode === 6 ? steps6 : steps7;
+        target.innerHTML = `
+          <strong>${selectedMode}-Step Troubleshooting Method</strong>
+          <ol>${steps.map(step => `<li>${step}</li>`).join("")}</ol>
+        `;
+      }
+
+      function getSelectedMode() {
+        const selected = document.querySelector('input[name="mode"]:checked');
+        return Number(selected ? selected.value : 6);
+      }
+
+      function startGame() {
+        mode = getSelectedMode();
+        deck = shuffle(scenarios).slice(0, Math.min(questionsPerGame, scenarios.length));
+        current = 0;
+        score = 0;
+        answered = false;
+        reviewItems = [];
+
+        els.startScreen.style.display = "none";
+        els.resultsScreen.style.display = "none";
+        els.gameScreen.style.display = "grid";
+        els.modeLabel.textContent = `${mode}-Step`;
+        renderReference(els.gameReference, mode);
+        renderQuestion();
+      }
+
+      function renderQuestion() {
+        answered = false;
+        const item = deck[current];
+
+        els.questionNum.textContent = `${current + 1} / ${deck.length}`;
+        els.score.textContent = score;
+        els.ticketLabel.textContent = item.title;
+        els.scenario.textContent = item.scenario;
+        els.questionText.textContent = item.question;
+        els.answers.innerHTML = "";
+        els.feedback.className = "feedback";
+        els.feedback.textContent = "";
+        els.nextBtn.style.display = "none";
+
+        item.options.forEach((option, index) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "answer-btn";
+          btn.textContent = option;
+          btn.addEventListener("click", () => answerQuestion(index, btn));
+          els.answers.appendChild(btn);
+        });
+      }
+
+      function answerQuestion(selectedIndex, selectedButton) {
+        if (answered) return;
+        answered = true;
+
+        const item = deck[current];
+        const buttons = [...els.answers.querySelectorAll("button")];
+        const isCorrect = selectedIndex === item.correct;
+
+        buttons.forEach((button, index) => {
+          button.disabled = true;
+          if (index === item.correct) button.classList.add("correct");
+        });
+
+        if (!isCorrect) selectedButton.classList.add("incorrect");
+
+        if (isCorrect) {
+          score++;
+          els.score.textContent = score;
+        }
+
+        const stepNumber = mode === 6 ? item.stage6 : item.stage7;
+        const stepName = (mode === 6 ? steps6 : steps7)[stepNumber - 1];
+        const explanation =
+          mode === 6 && item.explanation6 ? item.explanation6 :
+          mode === 7 && item.explanation7 ? item.explanation7 :
+          item.explanation;
+
+        els.feedback.className = `feedback ${isCorrect ? "good" : "bad"}`;
+        els.feedback.innerHTML = `
+          <strong>${isCorrect ? "Correct." : "Not quite."}</strong><br>
+          This relates to <strong>Step ${stepNumber}: ${stepName}</strong>.<br>
+          ${explanation}
+        `;
+
+        reviewItems.push({
+          title: item.title,
+          correct: isCorrect,
+          stepNumber,
+          stepName,
+          explanation
+        });
+
+        els.nextBtn.textContent = current === deck.length - 1 ? "See Results" : "Next Scenario";
+        els.nextBtn.style.display = "inline-block";
+      }
+
+      function nextQuestion() {
+        if (!answered) return;
+        if (current < deck.length - 1) {
+          current++;
+          renderQuestion();
+        } else {
+          showResults();
+        }
+      }
+
+      function showResults() {
+        els.gameScreen.style.display = "none";
+        els.resultsScreen.style.display = "block";
+
+        const percent = Math.round((score / deck.length) * 100);
+        els.finalScore.textContent = `${percent}%`;
+        els.finalBreakdown.textContent = `${score} correct out of ${deck.length}`;
+
+        let message = "";
+        if (percent === 100) message = "Excellent. You correctly applied the troubleshooting methodology in every scenario.";
+        else if (percent >= 80) message = "Strong result. You understand the process well, with only a few areas to review.";
+        else if (percent >= 60) message = "Good start. Review the order and purpose of the troubleshooting steps before trying again.";
+        else message = "Review the troubleshooting process and try again. Focus on identifying what stage each technician action represents.";
+
+        els.resultMessage.textContent = message;
+
+        els.review.innerHTML = `
+          <h3>Scenario Review</h3>
+          ${reviewItems.map(item => `
+            <div class="review-item">
+              <strong>${item.correct ? "✓" : "✗"} ${item.title}</strong>
+              Step ${item.stepNumber}: ${item.stepName}<br>
+              <span class="small">${item.explanation}</span>
+            </div>
+          `).join("")}
+        `;
+      }
+
+      function resetToStart() {
+        els.gameScreen.style.display = "none";
+        els.resultsScreen.style.display = "none";
+        els.startScreen.style.display = "block";
+        renderReference(els.startReference, getSelectedMode());
+      }
+
+      document.querySelectorAll('input[name="mode"]').forEach(input => {
+        input.addEventListener("change", () => renderReference(els.startReference, getSelectedMode()));
+      });
+
+      els.startBtn.addEventListener("click", startGame);
+      els.nextBtn.addEventListener("click", nextQuestion);
+      els.quitBtn.addEventListener("click", resetToStart);
+      els.playAgainBtn.addEventListener("click", resetToStart);
+
+      renderReference(els.startReference, 6);
+    })();
+  </script>
+</body>
+</html>
